@@ -1,0 +1,100 @@
+﻿<Window x:Class="SerialSnoop.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:SerialSnoop.Wpf"
+        xmlns:utils="clr-namespace:SerialSnoop.Wpf.Utils"
+        mc:Ignorable="d"
+        Title="Serial Snoop" Height="700" Width="1100">
+    <Window.Resources>
+        <utils:BooleanNotConverter x:Key="NotConverter" />
+
+        <!-- Brushes for TX/RX rows -->
+        <SolidColorBrush x:Key="TxBrush" Color="#FFEDF7FF" />
+        <SolidColorBrush x:Key="RxBrush" Color="#FFF0FFF0" />
+
+        <!-- Style ListViewItem based on Direction property ("TX" / "RX") -->
+        <Style TargetType="ListViewItem" x:Key="LogItemStyle">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="Black" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Direction}" Value="TX">
+                    <Setter Property="Background" Value="{StaticResource TxBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Direction}" Value="RX">
+                    <Setter Property="Background" Value="{StaticResource RxBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+    <DockPanel>
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusText}" />
+            </StatusBarItem>
+        </StatusBar>
+
+        <StackPanel DockPanel.Dock="Top" Margin="8" Orientation="Vertical">
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Upstream Port:" VerticalAlignment="Center" />
+                <ComboBox Grid.Row="0" Grid.Column="1" Margin="8,0,8,0" ItemsSource="{Binding AvailablePorts}" SelectedItem="{Binding SelectedUpstreamPort}" IsEnabled="{Binding IsRunning, Converter={StaticResource NotConverter}}" />
+                <Button Grid.Row="0" Grid.Column="2" Content="Refresh" Width="84" Command="{Binding RefreshPortsCommand}" />
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Downstream Port:" VerticalAlignment="Center" />
+                <ComboBox Grid.Row="1" Grid.Column="1" Margin="8,0,8,0" ItemsSource="{Binding AvailablePorts}" SelectedItem="{Binding SelectedDownstreamPort}" IsEnabled="{Binding IsRunning, Converter={StaticResource NotConverter}}" />
+
+                <StackPanel Grid.Row="2" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,8,0,0">
+                    <TextBlock Text="Baud:" VerticalAlignment="Center" />
+                    <ComboBox Width="100" Margin="8,0" ItemsSource="{Binding BaudRates}" SelectedItem="{Binding BaudRate}" IsEditable="True" IsEnabled="{Binding IsRunning, Converter={StaticResource NotConverter}}" />
+
+                    <TextBlock Text="DataBits:" VerticalAlignment="Center" />
+                    <TextBox Width="60" Margin="8,0" Text="{Binding DataBits}" IsEnabled="{Binding IsRunning, Converter={StaticResource NotConverter}}" />
+
+                    <TextBlock Text="Parity:" VerticalAlignment="Center" />
+                    <ComboBox Width="120" Margin="8,0" ItemsSource="{Binding Parities}" SelectedItem="{Binding Parity}" IsEnabled="{Binding IsRunning, Converter={StaticResource NotConverter}}" />
+
+                    <TextBlock Text="StopBits:" VerticalAlignment="Center" />
+                    <ComboBox Width="120" Margin="8,0" ItemsSource="{Binding StopBitsValues}" SelectedItem="{Binding StopBits}" IsEnabled="{Binding IsRunning, Converter={StaticResource NotConverter}}" />
+
+                    <TextBlock Text="Handshake:" VerticalAlignment="Center" />
+                    <ComboBox Width="140" Margin="8,0" ItemsSource="{Binding Handshakes}" SelectedItem="{Binding Handshake}" IsEnabled="{Binding IsRunning, Converter={StaticResource NotConverter}}" />
+
+                    <CheckBox Margin="16,0,0,0" Content="DTR" IsChecked="{Binding DtrEnable}" IsEnabled="{Binding IsRunning, Converter={StaticResource NotConverter}}" />
+                    <CheckBox Margin="8,0,0,0" Content="RTS" IsChecked="{Binding RtsEnable}" IsEnabled="{Binding IsRunning, Converter={StaticResource NotConverter}}" />
+
+                    <Button Margin="16,0,0,0" Content="Start" Width="80" Command="{Binding StartCommand}"/>
+                    <Button Margin="8,0,0,0" Content="Stop" Width="80" Command="{Binding StopCommand}"/>
+                    <Button Margin="16,0,0,0" Content="Clear Log" Width="100" Command="{Binding ClearLogCommand}"/>
+                    <Button Margin="8,0,0,0" Content="Save Log" Width="100" Command="{Binding SaveLogCommand}"/>
+
+                    <CheckBox Margin="16,0,0,0" Content="Auto-scroll" IsChecked="{Binding AutoScroll}" />
+                    <CheckBox Margin="8,0,0,0" Content="Log writes" IsChecked="{Binding LogWrites}" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+
+        <ListView x:Name="LogList" ItemsSource="{Binding LogEntries}" Margin="8" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.ScrollUnit="Pixel" ItemContainerStyle="{StaticResource LogItemStyle}">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Time" Width="120" DisplayMemberBinding="{Binding Timestamp, StringFormat=HH:mm:ss.fff}" />
+                    <GridViewColumn Header="Dir" Width="50" DisplayMemberBinding="{Binding Direction}" />
+                    <GridViewColumn Header="Len" Width="60" DisplayMemberBinding="{Binding Length}" />
+                    <GridViewColumn Header="Hex" Width="400" DisplayMemberBinding="{Binding Hex}" />
+                    <GridViewColumn Header="ASCII" Width="400" DisplayMemberBinding="{Binding Ascii}" />
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </DockPanel>
+</Window>

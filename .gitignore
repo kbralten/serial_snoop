@@ -1,0 +1,56 @@
+# Visual Studio / Rider / VSCode
+.vs/
+.vscode/
+!.vscode/tasks.json
+.idea/
+_ReSharper*/
+*.sln.iml
+
+# Build output
+bin/
+obj/
+
+# Publish / artifacts
+publish/
+artifacts/
+*.nupkg
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs and diagnostics
+logs/
+*.log
+
+# Test / coverage
+TestResults/
+coverage*/
+*.coverage
+*.coveragexml
+
+# NuGet
+packages/
+.nuget/
+project.lock.json
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Databases
+*.db
+*.db-shm
+*.db-wal
+
+# Misc
+*.pdb
+*.cache
+
+# Ignore single-file publish outputs in root
+*.exe
+
+# Keep README and source tracked
+!README.md
