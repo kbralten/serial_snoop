@@ -110,6 +110,27 @@ You can also open the solution in Visual Studio or run under the debugger from V
 - Auto-scroll toggle, Clear Log, Save Log
 - Ring-buffered UI to keep the last ~10,000 entries for responsiveness
 
+## Mirroring (Optional)
+
+Serial Snoop can optionally mirror all bytes that pass through the bridge to a third serial port. The "Mirror Port (Opt)" field in the main UI lets you supply a COM port that will receive copies of the raw bytes seen on both the Upstream and Downstream links.
+
+How it works:
+- When enabled, each read from either side is copied (best-effort) into a bounded mirror queue; a background writer drains that queue and writes the bytes to the mirror port.
+- The mirror port therefore sees the same byte streams from both directions (interleaved) — it is not a directional tap by default.
+
+Usage notes and caveats:
+- Configure the mirror port with the same serial settings (baud, parity, data bits, stop bits, handshake) as the bridge so the mirrored bytes are intelligible to the receiver.
+- The mirror writer is best-effort: writes time out after a short period (to avoid hanging the bridge) and mirror write errors are ignored so the main bridge keeps running.
+- The mirror queue is bounded; if it becomes full additional mirror copies are dropped. The primary Upstream⇄Downstream relay is unaffected by mirror drops.
+- Do not select the same COM port for Upstream, Downstream, and Mirror — the UI will prevent identical selections.
+
+Common use-cases:
+- Feed a hardware logger or analyzer on a separate serial port.
+- Send a copy of all traffic to a second tool or device for passive recording.
+
+Diagnostics:
+- Mirror-related errors are intentionally ignored in normal operation; check `logs/diagnostics.log` and `logs/crash.log` if you suspect mirror failures or unexpected behavior.
+
 ## Limitations
 
 - This program does not attach to an already open COM port; it must be placed in the middle using a virtual pair.
