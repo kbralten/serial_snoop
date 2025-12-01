@@ -15,4 +15,9 @@
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Ensure the icon is included as a resource so WPF can load it at runtime -->
+    <Resource Include="SerialSnoop.ico" />
+  </ItemGroup>
+
 </Project>
