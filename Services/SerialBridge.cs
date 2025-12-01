@@ -22,15 +22,18 @@ public sealed class SerialBridge : IDisposable
 {
     private SerialPortStream? _up;
     private SerialPortStream? _down;
+    private SerialPortStream? _mirror;
     private CancellationTokenSource? _cts;
 
     private Channel<byte[]>? _upToDown;
     private Channel<byte[]>? _downToUp;
+    private Channel<byte[]>? _mirrorChannel;
 
     private Task? _upReaderTask;
     private Task? _downReaderTask;
     private Task? _upWriterTask;
     private Task? _downWriterTask;
+    private Task? _mirrorWriterTask;
 
     private readonly int _channelCapacity = 1024;
     private readonly TimeSpan _writeTimeout = TimeSpan.FromSeconds(2);
@@ -46,7 +49,7 @@ public sealed class SerialBridge : IDisposable
     public event Action<Exception?>? Stopped;
     public event Action<BridgeStats>? DiagnosticsUpdated;
 
-    public void Start(SerialPortConfig upstream, SerialPortConfig downstream)
+    public void Start(SerialPortConfig upstream, SerialPortConfig downstream, SerialPortConfig? mirrorConfig = null)
     {
         if (IsRunning) throw new InvalidOperationException("Bridge already running");
 
@@ -58,17 +61,30 @@ public sealed class SerialBridge : IDisposable
         _up.Open();
         _down.Open();
 
+        if (mirrorConfig != null)
+        {
+            _mirror = new SerialPortStream();
+            mirrorConfig.ApplyTo(_mirror);
+            _mirror.Open();
+            _mirrorChannel = Channel.CreateBounded<byte[]>(_channelCapacity);
+        }
+
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
 
         _upToDown = Channel.CreateBounded<byte[]>(_channelCapacity);
         _downToUp = Channel.CreateBounded<byte[]>(_channelCapacity);
 
-        _upReaderTask = Task.Run(() => ReaderLoop(_up, _upToDown.Writer, Direction.Tx, ct));
-        _downReaderTask = Task.Run(() => ReaderLoop(_down, _downToUp.Writer, Direction.Rx, ct));
+        _upReaderTask = Task.Run(() => ReaderLoop(_up, _upToDown.Writer, Direction.Tx, ct, _mirrorChannel?.Writer));
+        _downReaderTask = Task.Run(() => ReaderLoop(_down, _downToUp.Writer, Direction.Rx, ct, _mirrorChannel?.Writer));
 
         _upWriterTask = Task.Run(() => WriterLoop(_upToDown.Reader, _down, Direction.Tx, ct));
         _downWriterTask = Task.Run(() => WriterLoop(_downToUp.Reader, _up, Direction.Rx, ct));
+        
+        if (_mirror != null && _mirrorChannel != null)
+        {
+            _mirrorWriterTask = Task.Run(() => MirrorWriterLoop(_mirrorChannel.Reader, _mirror, ct));
+        }
 
         IsRunning = true;
 
@@ -76,7 +92,10 @@ public sealed class SerialBridge : IDisposable
         {
             try
             {
-                await Task.WhenAll(_upReaderTask!, _downReaderTask!, _upWriterTask!, _downWriterTask!).ConfigureAwait(false);
+                var tasks = new System.Collections.Generic.List<Task> { _upReaderTask!, _downReaderTask!, _upWriterTask!, _downWriterTask! };
+                if (_mirrorWriterTask != null) tasks.Add(_mirrorWriterTask);
+                
+                await Task.WhenAll(tasks).ConfigureAwait(false);
                 Stopped?.Invoke(null);
             }
             catch (Exception ex)
@@ -97,7 +116,7 @@ public sealed class SerialBridge : IDisposable
         try { _cts?.Cancel(); } catch { }
     }
 
-    private async Task ReaderLoop(SerialPortStream from, ChannelWriter<byte[]> writer, Direction dir, CancellationToken ct)
+    private async Task ReaderLoop(SerialPortStream from, ChannelWriter<byte[]> writer, Direction dir, CancellationToken ct, ChannelWriter<byte[]>? mirrorWriter)
     {
         var buffer = new byte[4096];
         try
@@ -121,6 +140,8 @@ public sealed class SerialBridge : IDisposable
                     if (dir == Direction.Tx) Interlocked.Add(ref _bytesUp, read);
                     else Interlocked.Add(ref _bytesDown, read);
                 }
+
+                mirrorWriter?.TryWrite(copy);
 
                 PublishDiagnostics();
             }
@@ -165,6 +186,37 @@ public sealed class SerialBridge : IDisposable
         }
     }
 
+    private async Task MirrorWriterLoop(ChannelReader<byte[]> reader, SerialPortStream to, CancellationToken ct)
+    {
+        try
+        {
+            await foreach (var item in reader.ReadAllAsync(ct).ConfigureAwait(false))
+            {
+                try
+                {
+                    // Mirror writes are best-effort but we still want to timeout so we don't hang forever
+                    using var writeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    writeCts.CancelAfter(_writeTimeout);
+                    await to.WriteAsync(item, 0, item.Length, writeCts.Token).ConfigureAwait(false);
+                    try { to.Flush(); } catch { }
+                }
+                catch (OperationCanceledException)
+                {
+                    // stop
+                    break;
+                }
+                catch
+                {
+                    // Ignore mirror errors to keep main bridge running
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // normal
+        }
+    }
+
     private void PublishDiagnostics()
     {
         try
@@ -189,12 +241,16 @@ public sealed class SerialBridge : IDisposable
 
         try { _up?.Close(); } catch { }
         try { _down?.Close(); } catch { }
+        try { _mirror?.Close(); } catch { }
         try { _up?.Dispose(); } catch { }
         try { _down?.Dispose(); } catch { }
+        try { _mirror?.Dispose(); } catch { }
         _up = null;
         _down = null;
+        _mirror = null;
 
         try { _upToDown?.Writer.Complete(); } catch { }
         try { _downToUp?.Writer.Complete(); } catch { }
+        try { _mirrorChannel?.Writer.Complete(); } catch { }
     }
 }

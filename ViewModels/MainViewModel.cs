@@ -27,6 +27,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private string? _selectedDownstreamPort;
     public string? SelectedDownstreamPort { get => _selectedDownstreamPort; set { _selectedDownstreamPort = value; OnPropertyChanged(); UpdateCanStart(); } }
 
+    private string? _selectedMirrorPort;
+    public string? SelectedMirrorPort { get => _selectedMirrorPort; set { _selectedMirrorPort = value; OnPropertyChanged(); UpdateCanStart(); } }
+
     public ObservableCollection<int> BaudRates { get; } = new(new[] { 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600 });
 
     private int _baudRate = 115200;
@@ -105,10 +108,18 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private bool CanStart()
     {
-        return !IsRunning
-            && !string.IsNullOrWhiteSpace(SelectedUpstreamPort)
-            && !string.IsNullOrWhiteSpace(SelectedDownstreamPort)
-            && !string.Equals(SelectedUpstreamPort, SelectedDownstreamPort, StringComparison.OrdinalIgnoreCase);
+        if (IsRunning) return false;
+        if (string.IsNullOrWhiteSpace(SelectedUpstreamPort)) return false;
+        if (string.IsNullOrWhiteSpace(SelectedDownstreamPort)) return false;
+        if (string.Equals(SelectedUpstreamPort, SelectedDownstreamPort, StringComparison.OrdinalIgnoreCase)) return false;
+
+        if (!string.IsNullOrWhiteSpace(SelectedMirrorPort))
+        {
+            if (string.Equals(SelectedUpstreamPort, SelectedMirrorPort, StringComparison.OrdinalIgnoreCase)) return false;
+            if (string.Equals(SelectedDownstreamPort, SelectedMirrorPort, StringComparison.OrdinalIgnoreCase)) return false;
+        }
+
+        return true;
     }
 
     private void RefreshPorts()
@@ -150,9 +161,18 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _bridge.DataRelayed += OnDataRelayed;
             _bridge.Stopped += OnBridgeStopped;
             _bridge.DiagnosticsUpdated += OnDiagnostics;
-            _bridge.Start(BuildConfig(SelectedUpstreamPort!), BuildConfig(SelectedDownstreamPort!));
+
+            SerialPortConfig? mirrorConfig = null;
+            if (!string.IsNullOrWhiteSpace(SelectedMirrorPort))
+            {
+                mirrorConfig = BuildConfig(SelectedMirrorPort);
+            }
+
+            _bridge.Start(BuildConfig(SelectedUpstreamPort!), BuildConfig(SelectedDownstreamPort!), mirrorConfig);
             IsRunning = true;
-            StatusText = $"Running: {SelectedUpstreamPort} ⇄ {SelectedDownstreamPort} @ {BaudRate}bps";
+            
+            string mirrorStatus = mirrorConfig != null ? $" + Mirror({SelectedMirrorPort})" : "";
+            StatusText = $"Running: {SelectedUpstreamPort} ⇄ {SelectedDownstreamPort}{mirrorStatus} @ {BaudRate}bps";
         }
         catch (Exception ex)
         {

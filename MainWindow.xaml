@@ -46,6 +46,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Upstream Port:" VerticalAlignment="Center" />
@@ -55,7 +56,10 @@
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Downstream Port:" VerticalAlignment="Center" />
                 <ComboBox Grid.Row="1" Grid.Column="1" Margin="8,0,8,0" ItemsSource="{Binding AvailablePorts}" SelectedItem="{Binding SelectedDownstreamPort}" IsEnabled="{Binding IsRunning, Converter={StaticResource NotConverter}}" />
 
-                <StackPanel Grid.Row="2" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,8,0,0">
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Mirror Port (Opt):" VerticalAlignment="Center" />
+                <ComboBox Grid.Row="2" Grid.Column="1" Margin="8,0,8,0" ItemsSource="{Binding AvailablePorts}" SelectedItem="{Binding SelectedMirrorPort}" IsEnabled="{Binding IsRunning, Converter={StaticResource NotConverter}}" />
+
+                <StackPanel Grid.Row="3" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,8,0,0">
                     <TextBlock Text="Baud:" VerticalAlignment="Center" />
                     <ComboBox Width="100" Margin="8,0" ItemsSource="{Binding BaudRates}" SelectedItem="{Binding BaudRate}" IsEditable="True" IsEnabled="{Binding IsRunning, Converter={StaticResource NotConverter}}" />
 
