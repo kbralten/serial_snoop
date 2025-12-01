@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:SerialSnoop.Wpf"
         xmlns:utils="clr-namespace:SerialSnoop.Wpf.Utils"
         mc:Ignorable="d"
-        Title="Serial Snoop" Height="700" Width="1100">
+        Title="Serial Snoop" Height="700" Width="1100" Icon="SerialSnoop.ico">
     <Window.Resources>
         <utils:BooleanNotConverter x:Key="NotConverter" />
 
